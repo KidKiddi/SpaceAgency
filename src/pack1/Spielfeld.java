@@ -10,102 +10,114 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.Vector;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
-public class Spielfeld extends JPanel {
-
-	private int screenwidth = 1000, screenheight = 1000;
-	private int x = 40, y = screenheight - 110;
-	private int kollX,kollY;
-	private Player player = new Player(x, y, 40, 40, screenwidth, screenheight);
+public class SpielFeld extends JPanel {
 	private JFrame jf1;
+	private int screenwidth = 1000, screenheight = 1000;
+	private Spieler sp = new Spieler(60, screenheight - 200, 35, 35);
+	
+	private BufferedReader bf;
+	private Vector<Block> bl;
+	private Vector<Gegner> gegner;
 
-	public Spielfeld() {
-		jf1 = new JFrame();
+	public SpielFeld() {
+		bl = new Vector<>();
+		gegner=new Vector<>();
+		// Standarteinstellungen
+		jf1 = new JFrame("SecretAgency");
 		jf1.setSize(screenwidth, screenheight);
-		jf1.setTitle("Secret Agency");
 		jf1.setLocationRelativeTo(null);
 		jf1.setVisible(true);
 		jf1.setResizable(false);
-		jf1.addKeyListener(player);
-		//paint Methode aufrufen
+		// Draw Klasse aufrufen
 		jf1.add(this);
-		//jede 16 Millisekunden(60 FPS) prüfen, ob eine Taste gedrückt wird
-		new javax.swing.Timer(1000/60, e -> update()).start();
+		// KeyListener zum JFrame hinzufügen
+		jf1.addKeyListener(sp);
 
+		new javax.swing.Timer(1000 / 60, e -> update()).start();
 	}
 
-	// Zeichnen
-	@Override
 	public void paint(Graphics g) {
+		if (bl.size() == 0&&gegner.size()==0)
+			readFeld();
+		super.paintComponent(g);
 		Graphics2D g2 = (Graphics2D) g;
+		//
 		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 		g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-		super.paintComponents(g2);
-		// Hintergrund färben
 		g2.setColor(Color.BLACK);
-		// Erstellen des Feldes
 		g2.fillRect(0, 0, screenwidth, screenheight);
-		// Erstellen des Spielers
-		player.paint(g2);
-		// Begrenzung einzeichnen
-		readRechtecke(g2);
+		// Spieler einzeichnen
+		sp.drawPlayer(g2);
+		// Block einzeichnen
+		for (Block b : bl)
+			b.paint(g2);
+		for (Gegner geg : gegner){
+			geg.paint(g2);
+			
+		}
+	}
+	
 
+	private double getFieldWidth() {
+		return this.getWidth() / 25.0;
 	}
 
-	public void Begrenzung(Graphics g2, int posx, int posy) {
-	//	System.out.println("Spalte:"+posx+" Zeile:"+posy);
-//		System.out.println(kollX+" "+kollY);
+	private double getFieldHeight() {
+		return this.getHeight() / 25.0;
+	}
+
+	public int getScreenwidth() {
+		return screenwidth;
+	}
+
+	public int getScreenheight() {
+		return screenheight;
+	}
+
+	public Block Begrenzung(int x, int y) {
 		double w = getFieldWidth();
 		double h = getFieldHeight();
-		g2.fillRect((int)(posx * w), (int)(posy * h), 40, 40);
-	
-
-	}
-	
-	private double getFieldWidth(){
-		return this.getWidth()/25.0;
-	}
-	private double getFieldHeight(){
-		return this.getHeight()/25.0;
+		return new Block((int) (x * w), (int) (y * h), 40, 40);
 	}
 
-	public void readRechtecke(Graphics g2) {
+	public void readFeld() {
+		String line;
+		int zeile = 0;
+
 		try {
-			g2.setColor(Color.GREEN);
-			// Aus einer txt-Datei Zeichen ablesen und wenn an der Stelle ein
-			// "*" erkannt wird, ensprechend Blöcke platzieren
-			String line;
-			int zeile = 0;
-
-			BufferedReader bf = new BufferedReader(new FileReader(getResourceFromName("CreateLevel.txt")));
-
+			bf = new BufferedReader(new FileReader(getResourceFromName("CreateLevel.txt")));
 			while ((line = bf.readLine()) != null) {
-				for (int j = 0; j < line.length(); j++) {
-					if (line.charAt(j) == '*') {
-						
-						Begrenzung(g2, j, zeile);
+				for (int i = 0; i < line.length(); i++) {
+					if (line.charAt(i) == '*') {
+						Block b = Begrenzung(i, zeile);
+						bl.add(b);
+					}else if(line.charAt(i)=='_'){
+						Gegner ge=new Gegner(i*40.0f, zeile*40.0f, 35, 35);
+						gegner.add(ge);
 					}
+				
 				}
 				zeile++;
-			
 			}
 			bf.close();
+
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
 	}
-	
-	private File getResourceFromName(String name){
+
+	private File getResourceFromName(String name) {
 		URL url = ClassLoader.getSystemResource("src/resources/" + name);
-		if(url == null){
-			return new File("src/resources/"+name);
-		}
-		else{
+		if (url == null) {
+			return new File("src/resources/" + name);
+		} else {
 			try {
 				return new File(url.toURI());
 			} catch (URISyntaxException e) {
@@ -115,8 +127,18 @@ public class Spielfeld extends JPanel {
 		}
 	}
 
+	public boolean collision(Spieler sp) {
+		for (Block b : bl) {
+			if (b.isKollidiertSpieler(sp))
+				return true;
+
+		}
+		return false;
+	}
+
 	public void update() {
-		player.update(kollX*40,kollY*40);
+
+		sp.updatePlayer(collision(sp));
 		repaint();
 	}
 
